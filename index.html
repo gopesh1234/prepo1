@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+
+    <!-- jsPDF CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif;
+            background: #eef1f5;
+            color: #212121;
+        }
+
+        .page {
+            max-width: 1200px;
+            margin: auto;
+            padding: 16px;
+        }
+
+        h2 {
+            font-size: 18px;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        .main {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+        }
+
+        .left-panel {
+            width: 40%;
+        }
+
+        .right-panel {
+            width: 60%;
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 12px;
+            box-shadow: 0 6px 18px rgba(0,0,0,.08);
+            height: 420px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .row {
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.05);
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            font-size: 14px;
+            border-radius: 6px;
+            border: 1px solid #cfd4dc;
+        }
+
+        button {
+            width: 100%;
+            margin-top: 10px;
+            padding: 12px;
+            border-radius: 6px;
+            border: none;
+            background: #2563eb;
+            color: white;
+            cursor: pointer;
+        }
+
+            button.danger {
+                background: #dc2626;
+            }
+
+        .cards {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+        }
+
+        .card {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 12px;
+            border-left: 4px solid #2563eb;
+        }
+
+        /* 🔥 BUTTON ROW */
+        .card-actions {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 6px;
+            width: 15%;
+            margin-left: 86%;
+        }
+
+            .card-actions button {
+                flex: 1;
+                padding: 6px 0;
+                font-size: 12px;
+                border-radius: 4px;
+                margin-top: 0;
+            }
+
+        .move-up,
+        .move-down {
+            background: #2563eb;
+        }
+
+        .delete-card {
+            background: #ef4444;
+        }
+
+        .card-actions button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        @@media (max-width: 768px) {
+            .main {
+                flex-direction: column;
+            }
+
+            .left-panel, .right-panel {
+                width: 100%;
+            }
+
+            .right-panel {
+                height: auto;
+                max-height: 60vh;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="page">
+        <h2>Preposition – Phrasal Verb</h2>
+
+        <div class="main">
+            <div class="left-panel">
+                <div class="row">
+                    <input id="newOption" placeholder="Add dropdown value" />
+                    <button onclick="addOption()">Add</button>
+                </div>
+
+                <div class="row">
+                    <select id="dropdown" onchange="renderCards()"></select>
+                </div>
+
+                <div class="row">
+                    <input id="cardText" placeholder="Add text for selected dropdown" />
+                    <button onclick="addCard()">Save</button>
+                    <button class="danger" onclick="deleteDropdown()">Delete Dropdown</button>
+                </div>
+            </div>
+
+            <div class="right-panel">
+                <button onclick="downloadPDF()" style="width:13%; margin-bottom:8px; margin-left: 85%;">
+                    Download PDF
+                </button>
+
+                <div id="cardContainer" class="cards"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let data = JSON.parse(localStorage.getItem("dropdownData")) || {};
+        const dropdown = document.getElementById("dropdown");
+
+        function saveData() {
+            localStorage.setItem("dropdownData", JSON.stringify(data));
+        }
+
+        function loadDropdown() {
+            dropdown.innerHTML = "";
+            Object.keys(data).sort().forEach(key => {
+                const opt = document.createElement("option");
+                opt.value = key;
+                opt.textContent = key;
+                dropdown.appendChild(opt);
+            });
+        }
+
+        function addOption() {
+            const value = document.getElementById("newOption").value.trim();
+            if (!value || data[value]) return;
+            data[value] = [];
+            saveData();
+            loadDropdown();
+            dropdown.value = value;
+            document.getElementById("newOption").value = "";
+            renderCards();
+        }
+
+        function addCard() {
+            const text = document.getElementById("cardText").value.trim();
+            const selected = dropdown.value;
+            if (!text || !selected) return;
+            data[selected].push(text);
+            saveData();
+            document.getElementById("cardText").value = "";
+            renderCards();
+        }
+
+        function renderCards() {
+            const container = document.getElementById("cardContainer");
+            container.innerHTML = "";
+            const selected = dropdown.value;
+            if (!selected) return;
+
+            data[selected].forEach((item, index) => {
+                const div = document.createElement("div");
+                div.className = "card";
+
+                div.innerHTML = `
+                        <div class="card-actions">
+                            <button class="move-up"
+                                onclick="moveCard('${selected}', ${index}, -1)"
+                                ${index === 0 ? "disabled" : ""}>▲</button>
+
+                            <button class="move-down"
+                                onclick="moveCard('${selected}', ${index}, 1)"
+                                ${index === data[selected].length - 1 ? "disabled" : ""}>▼</button>
+
+                            <button class="delete-card"
+                                onclick="deleteCard('${selected}', ${index})">✖</button>
+                        </div>
+
+                        <strong>${index + 1}. ${item}</strong>
+                    `;
+
+                container.appendChild(div);
+            });
+        }
+
+        function moveCard(key, index, direction) {
+            const arr = data[key];
+            const newIndex = index + direction;
+            if (newIndex < 0 || newIndex >= arr.length) return;
+            [arr[index], arr[newIndex]] = [arr[newIndex], arr[index]];
+            saveData();
+            renderCards();
+        }
+
+        function deleteDropdown() {
+            const selected = dropdown.value;
+            if (!selected) return;
+            if (!confirm(`Delete "${selected}" and all its data?`)) return;
+            delete data[selected];
+            saveData();
+            loadDropdown();
+            renderCards();
+        }
+
+        function deleteCard(key, index) {
+            if (!confirm("Delete this card?")) return;
+            data[key].splice(index, 1);
+            saveData();
+            renderCards();
+        }
+
+        function downloadPDF() {
+            if (!Object.keys(data).length) {
+                alert("No data to download");
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            let firstPage = true;
+
+            Object.keys(data).sort().forEach(dropdownKey => {
+                const items = data[dropdownKey];
+                if (!items.length) return;
+
+                if (!firstPage) {
+                    doc.addPage();
+                }
+                firstPage = false;
+
+                doc.setFontSize(14);
+                doc.text(dropdownKey, 10, 15);
+
+                doc.setFontSize(11);
+                let y = 30;
+
+                items.forEach((item, index) => {
+                    doc.text(`${index + 1}. ${item}`, 10, y);
+                    y += 8;
+
+                    if (y > 280) {
+                        doc.addPage();
+                        y = 20;
+                    }
+                });
+            });
+
+            doc.save("All_Data.pdf");
+        }
+
+
+        loadDropdown();
+        renderCards();
+    </script>
+
+</body>
+</html>
